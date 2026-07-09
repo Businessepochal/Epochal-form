@@ -411,7 +411,56 @@ function hideLoad(){document.getElementById('loadov').style.display='none';}
 function doLoad(){var m=document.getElementById('loadmob').value.trim();if(!m){toast('Enter mobile number');return;}var raw=localStorage.getItem('eu_'+m);if(raw){try{RST(JSON.parse(raw));if(!mob){mob=m;document.getElementById('uinfo').textContent='Mobile: '+m;}hideLoad();toast('Draft restored!');return;}catch(e){}}toast('No saved data found for this number');}
 function loadDraft(){if(!mob)return;var raw=localStorage.getItem('eu_'+mob);if(!raw)return;try{RST(JSON.parse(raw));setDS('Draft restored');}catch(e){}}
 function RST(d){var kk=['territory','district','state','firm_name','firm_addr','shop_tel','firm_mob','email','est_year','acct_type','dd_bank','dd_no','dd_date','dd_amt','pan','aadhar','gst_no','pest_lic','pest_val','fert_lic','fert_val','s_place','s_date','signatory','designation','ft1','ft2','ft3','fa1','fa2','fa3','fn1','fn2','fn3','fw1','fw2','fw3'];for(var i=0;i<kk.length;i++){var el=document.querySelector('[data-k="'+kk[i]+'"]');if(el&&d[kk[i]]!==undefined)el.value=d[kk[i]]||'';}var rr=['nature','gst_reg','composite'];for(var j=0;j<rr.length;j++){if(d[rr[j]]){var r=document.querySelector('[name="'+rr[j]+'"][value="'+d[rr[j]]+'"]');if(r){r.checked=true;if(rr[j]==='gst_reg'&&d[rr[j]]==='Yes')document.getElementById('gstb').style.display='block';}}}if(d.declare)document.getElementById('declare').checked=true;}
-function SUB(){if(!document.getElementById('declare').checked){toast('Please confirm the declaration');return;}var appId='APP-'+Date.now();var data=COL();data.appId=appId;data.action='submit';document.getElementById('subbtn').disabled=true;fetch(SURL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(function(){try{localStorage.removeItem('eu_'+mob);}catch(e){}showSucc(appId);}).catch(function(){showSucc(appId);});}
+function SUB(){
+  if(!document.getElementById('declare').checked){toast('Please confirm the declaration');return;}
+  var appId='APP-'+Date.now();
+  var btn=document.getElementById('subbtn');
+  btn.disabled=true;btn.textContent='Submitting...';
+  toast('Uploading files, please wait...');
+  
+  var data=COL();data.appId=appId;data.action='submit';
+  
+  // Convert files to base64
+  var filesToConvert = ufiles.filter(function(f){return f.fileObj;});
+  if(filesToConvert.length === 0){
+    sendData(data, appId);
+    return;
+  }
+  
+  var converted = [];
+  var done = 0;
+  filesToConvert.forEach(function(f, idx){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      converted[idx] = {
+        name: f.name,
+        size: f.size,
+        type: f.fileObj.type,
+        base64: e.target.result.split(',')[1]
+      };
+      done++;
+      if(done === filesToConvert.length){
+        data.filesData = converted;
+        sendData(data, appId);
+      }
+    };
+    reader.onerror = function(){
+      converted[idx] = {name:f.name, size:f.size, error:true};
+      done++;
+      if(done === filesToConvert.length){
+        data.filesData = converted;
+        sendData(data, appId);
+      }
+    };
+    reader.readAsDataURL(f.fileObj);
+  });
+}
+
+function sendData(data, appId){
+  fetch(SURL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(function(){try{localStorage.removeItem('eu_'+mob);}catch(e){}showSucc(appId);})
+    .catch(function(){showSucc(appId);});
+}
 function showSucc(id){document.getElementById('fsec').style.display='none';document.getElementById('succ').style.display='block';document.getElementById('appid').textContent=id;}
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.className='toast on';setTimeout(function(){t.className='toast';},3000);}
 
